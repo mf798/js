@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {
+    max-width: 800px;
+    margin: 0 auto 0 auto;
+    font-family: arial, sans-serif;
+    font-size: 16px;
+    line-height: 20px;
+}
+</style>
+</head>
+<body>
+<h1>Convert to Markdown and clean HTML</h1>
+<p>Input:</p>
+<div id="input" style="border:1px solid gray" contenteditable="true"></div>
+<br>
+<button onclick="convert2MD()">Convert to MD</button>
+<br>
+<p>Markdown Output:</p>
+<textarea id="MDoutput" rows="16" cols="72"></textarea>
+<br>
+<button onclick="convert2HTML()">MD to HTML</button>
+<br>
+<p>Clean HTML Output:</p>
+<textarea id="HTMLoutput" rows="16" cols="72"></textarea>
+<br>
+<p>Clean HTML Preview:</p>
+<div id="HTMLpreview" style="border:1px solid gray" contenteditable="false"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/turndown/7.0.0/turndown.min.js" integrity="sha512-v9hVAwlYm3ca133Q8GsdUJ6G9vcOgcgBXsIl/sAUqcvAjlTYzMATYkCHsG70fmFIUoFaH7udfdO2gcwrqkRfAw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.0.3/marked.min.js" integrity="sha512-lYRvlgmxv7o+vp/Gmo3p4qLML4csV0loGFy8cP2vpMSwV4F65BTq6LUZyq5zlV5s/LB0KkdGhd/tnMCmjWardA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+var turndownService = new window.TurndownService()
+
+function convert2MD() {
+    document.getElementById("MDoutput").value = turndownService.turndown(document.getElementById("input").innerHTML);
+}
+
+function convert2HTML() {
+    document.getElementById("HTMLoutput").value = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<style>\nbody {\n  max-width: 750px;\n  margin: 0 auto 0 auto;\n  font-family: \"Times New Roman\", serif;\n  font-size: 20px;\n  line-height: 32px;\n}\nh1 {font-size: 28px;}\nh2 {font-size: 24px;}\nh3 {font-size: 22px;}\nh4 {font-size: 20px;}\n</style>\n</head>\n<body>\n" + marked.parse(document.getElementById("MDoutput").value) + "\n</body>\n</html>";
+    document.getElementById("HTMLpreview").innerHTML = document.getElementById("HTMLoutput").value;
+}
+</script>
+</body>
+</html>
