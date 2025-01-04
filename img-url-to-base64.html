@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+<style>
+body {
+    max-width: 800px;
+    margin: 0 auto 0 auto;
+    font-family: arial, sans-serif;
+    font-size: 16px;
+    line-height: 20px;
+}
+</style>
+</head>
+<body>
+    <h1>Image URL To Base64</h1>
+    <div>
+        <p>Image URL:</p>
+        <input type="data" name="imgurl" id="imgurl" size="72">
+        <br>
+        <button onclick="convert()">Convert</button>
+        <br>
+        <p>Base64:</p>
+        <textarea id="Base64data" rows="16" cols="72"></textarea>
+        <br>
+        <img id="Base64img">
+    </div>
+
+<script>
+    function convert() {
+        getBase64(document.getElementById("imgurl").value)
+        .then(result=>{
+            document.getElementById("Base64data").value = result;
+            document.getElementById("Base64img").src = result;
+        })
+    }
+    const getBase64 = async (url) => {
+        const data = await fetch(url);
+        const blob = await data.blob();
+        return new Promise((encode) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(blob); 
+            reader.onloadend = () => {
+                const base64data = reader.result;   
+                encode(base64data);
+            }
+         });
+    }
+</script>
+</body>
+</html>
