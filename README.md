@@ -5,6 +5,8 @@ Assorted single-file JavaScript tools
 
 [Simple text file editor](simple-text-editor.html)
 
+[Simple div with contenteditable=true for quick printing](contenteditable-div.html)
+
 [Roll d6 dice](d6.html)
 
 [Word counter](wordcount.html)
