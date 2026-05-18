@@ -24,6 +24,8 @@ body {
 <textarea id="MDoutput" rows="16" cols="72"></textarea>
 <br>
 <button onclick="convert2HTML()">MD to HTML</button>
+<input type="radio" name="font" value="Sans" checked="checked">Sans
+<input type="radio" name="font" value="Serif">Serif
 <br>
 <p>Clean HTML Output:</p>
 <textarea id="HTMLoutput" rows="16" cols="72"></textarea>
@@ -41,7 +43,13 @@ function convert2MD() {
 }
 
 function convert2HTML() {
-    document.getElementById("HTMLoutput").value = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<style>\nbody {\n  max-width: 750px;\n  margin: 0 auto 0 auto;\n  font-family: \"Times New Roman\", serif;\n  font-size: 20px;\n  line-height: 32px;\n}\nh1 {font-size: 28px;}\nh2 {font-size: 24px;}\nh3 {font-size: 22px;}\nh4 {font-size: 20px;}\n</style>\n</head>\n<body>\n" + marked.parse(document.getElementById("MDoutput").value) + "\n</body>\n</html>";
+    const fontValue = document.querySelector('input[name="font"]:checked').value;
+    if(fontValue == "Serif") {
+        document.getElementById("HTMLoutput").value = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<style>\nbody {\n  max-width: 750px;\n  margin: 0 auto 0 auto;\n  font-family: \"Times New Roman\", serif;\n  font-size: 20px;\n  line-height: 32px;\n}\nh1 {font-size: 28px;}\nh2 {font-size: 24px;}\nh3 {font-size: 22px;}\nh4 {font-size: 20px;}\n</style>\n</head>\n<body>\n" + marked.parse(document.getElementById("MDoutput").value) + "\n</body>\n</html>";
+    }
+    else {
+        document.getElementById("HTMLoutput").value = "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<style>\nbody {\n  max-width: 750px;\n  margin: 0 auto 0 auto;\n  font-family: Arial, Helvetica, sans-serif;\n  font-size: 18px;\n  line-height: 28px;\n}\nh1 {font-size: 28px;}\nh2 {font-size: 22px;}\nh3 {font-size: 20px;}\nh4 {font-size: 18px;}\n</style>\n</head>\n<body>\n" + marked.parse(document.getElementById("MDoutput").value) + "\n</body>\n</html>";
+    }
     document.getElementById("HTMLpreview").innerHTML = document.getElementById("HTMLoutput").value;
 }
 </script>
