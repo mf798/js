@@ -3,7 +3,7 @@ Assorted single-file JavaScript tools
 
 [Convert HTML to MD to clean HTML with CSS](html-md-css.html)
 
-[Simple bidirectional HTML editor](Bidirectional-HTML-editor.html)
+[Basic bidirectional HTML editor](Bidirectional-HTML-editor.html)
 
 [Simple text file editor](simple-text-editor.html)
 
