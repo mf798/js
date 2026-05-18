@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simple Text File Editor</title>
+
+<style>
+    body {
+        max-width: 1000px;
+        margin: 0 auto 0 auto;
+        font-family: Arial, sans-serif;
+        font-size: 16px;
+        line-height: 20px;
+        padding: 1rem;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        height: 100vh;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 20px;
+    }
+
+    .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    textarea {
+        flex: 1;
+        width: 100%;
+        resize: none;
+        padding: 0.75rem;
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+        min-height: 200px;
+    }
+
+    label {
+        font-size: 0.9rem;
+    }
+
+    input[type="text"] {
+        padding: 0.3rem;
+        font-size: 16px;
+    }
+
+    button {
+        padding: 0.4rem 0.75rem;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    @media (max-width: 600px) {
+        body {
+            padding: 0.5rem;
+        }
+    }
+</style>
+</head>
+<body>
+
+<h1>Simple Text File Editor</h1>
+
+<div class="controls">
+    <input type="file" id="fileInput" accept=".txt,.md,.html,.xml,.json,.csv,.log,.yaml,.yml,.js,.css">
+
+    <label>
+        <input type="checkbox" id="wrapToggle" checked>
+        Word Wrap
+    </label>
+</div>
+
+<textarea id="textArea" wrap="soft"></textarea>
+
+<div class="controls">
+    <label>
+        Encoding:
+        <select id="encodingSelect">
+            <option value="utf-8" selected>UTF-8</option>
+            <option value="ascii">ASCII</option>
+        </select>
+    </label>
+
+    <label>
+        Line Endings:
+        <select id="lineEndingSelect">
+            <option value="crlf" selected>Windows (CRLF)</option>
+            <option value="lf">Linux (LF)</option>
+        </select>
+    </label>
+
+    <label>
+        File name:
+        <input type="text" id="fileName" value="download.txt">
+    </label>
+
+    <button id="downloadBtn">Download</button>
+</div>
+
+<script>
+const fileInput = document.getElementById("fileInput");
+const textArea = document.getElementById("textArea");
+const downloadBtn = document.getElementById("downloadBtn");
+const fileNameInput = document.getElementById("fileName");
+const wrapToggle = document.getElementById("wrapToggle");
+const encodingSelect = document.getElementById("encodingSelect");
+const lineEndingSelect = document.getElementById("lineEndingSelect");
+
+fileInput.addEventListener("change", function () {
+    const file = this.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        textArea.value = e.target.result;
+        fileNameInput.value = file.name;
+    };
+    reader.readAsText(file);
+});
+
+wrapToggle.addEventListener("change", function () {
+    if (this.checked) {
+        textArea.style.whiteSpace = "pre-wrap";
+        textArea.wrap = "soft";
+    } else {
+        textArea.style.whiteSpace = "pre";
+        textArea.wrap = "off";
+    }
+});
+
+downloadBtn.addEventListener("click", function () {
+    let content = textArea.value;
+
+    if (lineEndingSelect.value === "crlf") {
+        content = content.replace(/\r?\n/g, "\r\n");
+    } else {
+        content = content.replace(/\r\n/g, "\n");
+    }
+
+    let blob;
+    if (encodingSelect.value === "ascii") {
+        const asciiContent = content.replace(/[^\x00-\x7F]/g, "?");
+        blob = new Blob([asciiContent], { type: "text/plain;charset=us-ascii;" });
+    } else {
+        blob = new Blob([content], { type: "text/plain;charset=utf-8;" });
+    }
+
+    const fileName = fileNameInput.value || "download.txt";
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+});
+</script>
+
+</body>
+</html>
