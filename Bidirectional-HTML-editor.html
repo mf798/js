@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+
+<style>
+body {
+  margin: 0;
+  font-family: arial, sans-serif;
+  font-size: 18px;
+  line-height: 28px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+h1 {font-size: 28px;}
+h2 {font-size: 22px;}
+h3 {font-size: 20px;}
+h4 {font-size: 18px;}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #f2f2f2;
+  border-bottom: 1px solid #ccc;
+}
+
+.toolbar button,
+.toolbar input {
+  font-size: 1rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.container {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editor,
+.source {
+  flex: 1;
+  padding: 1rem;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.editor {
+  border: 1px solid #ccc;
+}
+
+#content {
+  min-height: 100%;
+  outline: none;
+}
+
+textarea {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  font-family: monospace;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button id="renderSource">Render source code to DIV</button>
+  <button id="updateSource">Update source code from DIV</button>
+  <input type="text" id="filename" placeholder="document.html">
+  <button id="downloadHtml">Download HTML</button>
+</div>
+
+<div class="container">
+  <div class="source">
+    <textarea id="htmlSource" spellcheck="false"></textarea>
+  </div>
+  <div class="editor">
+    <div id="content" contenteditable="true"></div>
+  </div>
+</div>
+
+<script>
+const contentDiv = document.getElementById("content");
+const htmlSource = document.getElementById("htmlSource");
+const updateButton = document.getElementById("updateSource");
+const renderButton = document.getElementById("renderSource");
+const downloadButton = document.getElementById("downloadHtml");
+const filenameInput = document.getElementById("filename");
+
+const ALLOWED_TAGS = [
+  "P","H1","H2","H3","H4","H5","H6",
+  "B","STRONG","I","EM","SUB","SUP",
+  "S","STRIKE","CODE","PRE","BLOCKQUOTE",
+  "UL","OL","LI","BR"
+];
+
+contentDiv.addEventListener("paste", function(e) {
+  e.preventDefault();
+  const html = e.clipboardData.getData("text/html");
+  const text = e.clipboardData.getData("text/plain");
+
+  let sanitized;
+  if (html) {
+    sanitized = sanitizeHTML(html);
+  } else {
+    sanitized = document.createElement("p");
+    sanitized.textContent = text;
+  }
+
+  insertNodeAtCursor(sanitized);
+});
+
+function sanitizeHTML(inputHtml) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(inputHtml, "text/html");
+  const fragment = document.createDocumentFragment();
+
+  function processNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return document.createTextNode(node.textContent);
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
+    }
+
+    let tagName = node.tagName.toUpperCase();
+
+    if (tagName === "A") {
+      return document.createTextNode(node.textContent);
+    }
+
+    if (tagName === "DIV") {
+      const hasText = node.textContent.trim().length > 0;
+      if (!hasText) return null;
+
+      const p = document.createElement("p");
+      Array.from(node.childNodes).forEach(child => {
+        const processed = processNode(child);
+        if (processed) p.appendChild(processed);
+      });
+      return p;
+    }
+
+    if (!ALLOWED_TAGS.includes(tagName)) {
+      const fragment = document.createDocumentFragment();
+      Array.from(node.childNodes).forEach(child => {
+        const processed = processNode(child);
+        if (processed) fragment.appendChild(processed);
+      });
+      return fragment;
+    }
+
+    const el = document.createElement(tagName.toLowerCase());
+
+    Array.from(node.childNodes).forEach(child => {
+      const processed = processNode(child);
+      if (processed) el.appendChild(processed);
+    });
+
+    return el;
+  }
+
+  Array.from(doc.body.childNodes).forEach(child => {
+    const processed = processNode(child);
+    if (processed) fragment.appendChild(processed);
+  });
+
+  removeEmptyParagraphs(fragment);
+  return fragment;
+}
+
+function removeEmptyParagraphs(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  const toRemove = [];
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (node.tagName === "P" && node.textContent.trim() === "") {
+      toRemove.push(node);
+    }
+  }
+  toRemove.forEach(n => n.remove());
+}
+
+function insertNodeAtCursor(node) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  range.insertNode(node);
+  range.collapse(false);
+}
+
+updateButton.addEventListener("click", function() {
+  const cleaned = sanitizeHTML(contentDiv.innerHTML);
+  const tempDiv = document.createElement("div");
+  tempDiv.appendChild(cleaned);
+  htmlSource.value = prettyPrint(tempDiv.innerHTML);
+});
+
+renderButton.addEventListener("click", function() {
+  contentDiv.innerHTML = htmlSource.value;
+});
+
+function prettyPrint(html) {
+  const blockTags = /<\/?(p|h1|h2|h3|h4|h5|h6|blockquote)[^>]*>/gi;
+  html = html.replace(blockTags, "\n$&\n");
+  html = html.replace(/\n{2,}/g, "\n");
+  return html.trim();
+}
+
+downloadButton.addEventListener("click", function() {
+  let name = filenameInput.value.trim() || "document.html";
+
+  if (!/\.html$/i.test(name)) {
+    name += ".html";
+  }
+
+  const content = htmlSource.value.trim();
+
+  const fullDocument =
+`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title></title>
+body {
+    max-width: 800px;
+    margin: 0 auto 0 auto;
+    font-family: arial, sans-serif;
+    font-size: 18px;
+    line-height: 28px;
+}
+h1 {font-size: 28px;}
+h2 {font-size: 22px;}
+h3 {font-size: 20px;}
+h4 {font-size: 18px;}
+</head>
+<body>
+${content}
+</body>
+</html>`;
+
+  const blob = new Blob([fullDocument], { type: "text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+});
+</script>
+
+</body>
+</html>
