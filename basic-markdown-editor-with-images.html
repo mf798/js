@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Editor</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.0.3/marked.min.js" integrity="sha512-lYRvlgmxv7o+vp/Gmo3p4qLML4csV0loGFy8cP2vpMSwV4F65BTq6LUZyq5zlV5s/LB0KkdGhd/tnMCmjWardA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/turndown/7.0.0/turndown.min.js" integrity="sha512-v9hVAwlYm3ca133Q8GsdUJ6G9vcOgcgBXsIl/sAUqcvAjlTYzMATYkCHsG70fmFIUoFaH7udfdO2gcwrqkRfAw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+header {
+    padding: 8px;
+    background: #f4f4f4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.container {
+    flex: 1;
+    display: flex;
+    height: 100%;
+}
+.pane {
+    flex: 0 0 50%;
+    width: 50%;
+    display: flex;
+    box-sizing: border-box;
+}
+textarea,
+.html-editor {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    overflow: auto;
+}
+textarea
+{
+    font-family: monospace;
+}
+.html-editor
+{
+    font-family: Arial, sans-serif;
+}
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .pane {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+}
+
+</style>
+</head>
+<body>
+
+<header>
+    <input type="file" id="imageUpload" accept="image/*" multiple>
+    <button onclick="addImageFromURL()">Add Image via URL</button>
+    <button onclick="downloadFile('markdown')">Download Markdown</button>
+    <button onclick="downloadFile('html')">Download HTML</button>
+</header>
+
+<div class="container">
+    <div class="pane">
+        <textarea id="markdownEditor" placeholder="Type Markdown here..."></textarea>
+    </div>
+    <div class="pane">
+        <div id="htmlEditor" class="html-editor" contenteditable="true"></div>
+    </div>
+</div>
+
+<script>
+const markdownEditor = document.getElementById("markdownEditor");
+const htmlEditor = document.getElementById("htmlEditor");
+const imageUpload = document.getElementById("imageUpload");
+
+const turndownService = new TurndownService({
+    headingStyle: "setext",
+    codeBlockStyle: "fenced"
+});
+
+marked.setOptions({
+    gfm: true,
+    breaks: true
+});
+
+let isUpdating = false;
+
+//Markdown to HTML
+markdownEditor.addEventListener("input", () => {
+    if (isUpdating) return;
+    isUpdating = true;
+
+    const html = marked.parse(markdownEditor.value);
+    htmlEditor.innerHTML = sanitizeHTML(html);
+
+    isUpdating = false;
+});
+
+//HTML to Markdown
+htmlEditor.addEventListener("input", async () => {
+    if (isUpdating) return;
+    isUpdating = true;
+
+    await convertImagesToBase64(htmlEditor);
+
+    const cleanHTML = sanitizeHTML(htmlEditor.innerHTML);
+    markdownEditor.value = turndownService.turndown(cleanHTML);
+
+    isUpdating = false;
+});
+
+function sanitizeHTML(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    const allowedTags = new Set([
+        "H1","H2","H3","H4","H5","H6",
+        "P","BR","STRONG","B","EM","I",
+        "BLOCKQUOTE","CODE","PRE",
+        "UL","OL","LI",
+        "A","IMG"
+    ]);
+
+    function cleanNode(node) {
+
+        // Text nodes preserved
+        if (node.nodeType === Node.TEXT_NODE) {
+            return document.createTextNode(node.textContent);
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return document.createDocumentFragment();
+        }
+
+        // Convert DIV to P to preserve paragraph structure
+        if (node.tagName === "DIV") {
+            const p = document.createElement("p");
+            node.childNodes.forEach(child => {
+                p.appendChild(cleanNode(child));
+            });
+            return p;
+        }
+
+        // Convert double BR into paragraph breaks
+        if (node.tagName === "BR") {
+            return document.createElement("br");
+        }
+
+        // Remove unsupported tags but preserve child nodes
+        if (!allowedTags.has(node.tagName)) {
+            const fragment = document.createDocumentFragment();
+            node.childNodes.forEach(child => {
+                fragment.appendChild(cleanNode(child));
+            });
+            return fragment;
+        }
+
+        const el = document.createElement(node.tagName);
+
+        if (node.tagName === "A" && node.href) {
+            el.setAttribute("href", node.getAttribute("href"));
+        }
+
+        if (node.tagName === "IMG" && node.src) {
+            el.setAttribute("src", node.getAttribute("src"));
+            if (node.alt) el.setAttribute("alt", node.getAttribute("alt"));
+        }
+
+        node.childNodes.forEach(child => {
+            el.appendChild(cleanNode(child));
+        });
+
+        return el;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    doc.body.childNodes.forEach(node => {
+        fragment.appendChild(cleanNode(node));
+    });
+
+    const container = document.createElement("div");
+    container.appendChild(fragment);
+
+    return normalizeParagraphs(container.innerHTML);
+}
+
+function normalizeParagraphs(html) {
+    return html
+        .replace(/(<br\s*\/?>\s*){2,}/gi, "</p><p>")
+        .replace(/^\s*<\/p>/, "")
+        .replace(/<p>\s*<\/p>/g, "");
+}
+
+//Convert images to base64
+async function convertImagesToBase64(container) {
+    const images = container.querySelectorAll("img");
+
+    for (let img of images) {
+        if (img.src.startsWith("data:")) continue;
+
+        try {
+            const response = await fetch(img.src);
+            const blob = await response.blob();
+            img.src = await blobToBase64(blob);
+        } catch (e) {
+            console.warn("Image conversion failed:", e);
+        }
+    }
+}
+
+function blobToBase64(blob) {
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+    });
+}
+
+imageUpload.addEventListener("change", async (e) => {
+    for (let file of e.target.files) {
+        const base64 = await blobToBase64(file);
+        htmlEditor.innerHTML += `<img src="${base64}" alt="">`;
+    }
+});
+
+function addImageFromURL() {
+    const url = prompt("Enter image URL:");
+    if (!url) return;
+
+    fetch(url)
+        .then(res => res.blob())
+        .then(blob => blobToBase64(blob))
+        .then(base64 => {
+            htmlEditor.innerHTML += `<img src="${base64}" alt="">`;
+        })
+        .catch(() => alert("Failed to load image."));
+}
+
+//Paste Handling
+htmlEditor.addEventListener("paste", async (e) => {
+    e.preventDefault();
+
+    const htmlData = e.clipboardData.getData("text/html");
+    const textData = e.clipboardData.getData("text/plain");
+
+    if (htmlData) {
+        htmlEditor.innerHTML += sanitizeHTML(htmlData);
+    } else {
+        htmlEditor.innerHTML += marked.parse(textData);
+    }
+
+    await convertImagesToBase64(htmlEditor);
+
+    markdownEditor.value = turndownService.turndown(
+        sanitizeHTML(htmlEditor.innerHTML)
+    );
+});
+
+function downloadFile(type) {
+
+    let defaultName = "document";
+    let filename = prompt(
+        type === "markdown"
+            ? "Enter filename (default extension .txt):"
+            : "Enter filename (default extension .html):",
+        defaultName
+    );
+
+    if (!filename) return;
+
+    let content, mime;
+
+    if (type === "markdown") {
+
+        // If no extension provided default to .txt
+        if (!filename.includes(".")) {
+            filename += ".txt";
+        }
+
+        content = markdownEditor.value;
+        mime = "text/plain";
+
+    } else {
+
+        // If no extension provided default to .html
+        if (!filename.includes(".")) {
+            filename += ".html";
+        }
+
+        // Wrap HTML content in a full valid document
+        content =
+`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${filename.replace(/\.[^/.]+$/, "")}</title>
+<style>
+body {
+  max-width: 750px;
+  margin: 0 auto 0 auto;
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+  line-height: 28px;
+}
+h1 {
+  font-size: 28px;
+}
+h2 {
+  font-size: 24px;
+}
+h3 {
+  font-size: 20px;
+}
+</style>
+</head>
+<body>
+${htmlEditor.innerHTML}
+</body>
+</html>`;
+
+        mime = "text/html";
+    }
+
+    const blob = new Blob([content], { type: mime });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+}
+</script>
+
+</body>
+</html>
