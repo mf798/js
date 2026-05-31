@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title></title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 18px;
+        line-height: 28px;
+        margin: 0;
+        padding: 1rem;
+        box-sizing: border-box;
+        background: #fff;
+        color: #222;
+    }
+    h1 {
+        font-size: 28px;
+    }
+    h2 {
+        font-size: 24px;
+    }
+    h3 {
+        font-size: 20px;
+    }
+    h4 {
+        font-size: 18px;
+    }
+    h5 {
+        font-size: 18px;
+    }
+    h6 {
+        font-size: 18px;
+    }
+    .controls {
+        margin-bottom: 1rem;
+    }
+
+    input[type="file"] {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    #content {
+        max-width: 750px;
+        margin: 0 auto;
+        overflow-wrap: break-word;
+    }
+
+    pre {
+        overflow-x: auto;
+        padding: 0.5rem;
+        background: #f4f4f4;
+    }
+
+    code {
+        font-family: Consolas, Monaco, monospace;
+    }
+
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        overflow-x: auto;
+        display: block;
+    }
+
+    th, td {
+        border: 1px solid #ccc;
+        padding: 0.4rem;
+        text-align: left;
+    }
+
+    /* Optional: Task list styling */
+    input[type="checkbox"][disabled] {
+        transform: scale(1.2);
+        margin-right: 0.4rem;
+    }
+</style>
+</head>
+<body>
+
+<div class="controls">
+    <input type="file" id="fileInput" accept=".md,.markdown,.txt,text/markdown,text/plain">
+</div>
+
+<div id="content">
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.0.3/marked.min.js" integrity="sha512-lYRvlgmxv7o+vp/Gmo3p4qLML4csV0loGFy8cP2vpMSwV4F65BTq6LUZyq5zlV5s/LB0KkdGhd/tnMCmjWardA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+document.getElementById('fileInput').addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+
+        const html = marked.parse(text, {
+            gfm: true,
+            breaks: true,
+            headerIds: true,
+        });
+
+        document.getElementById('content').innerHTML = html;
+    } catch (err) {
+        document.getElementById('content').innerHTML = '<p>Unable to read file.</p>';
+        console.error(err);
+    }
+});
+</script>
+
+</body>
+</html>
