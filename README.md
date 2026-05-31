@@ -21,6 +21,6 @@ Assorted single-file JavaScript tools
 
 [Convert image from URL to Base64](img-url-to-base64.html)
 
-[Basic WEBP image converter](basic-webp-converter.html)
+[Basic WebP image converter](basic-webp-converter.html)
 
 [Convert HTML to MD to clean HTML with CSS](html-md-css.html)
