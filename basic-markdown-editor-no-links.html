@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown ⇄ HTML Editor</title>
+
+<!-- Markdown → HTML -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.0.3/marked.min.js" integrity="sha512-lYRvlgmxv7o+vp/Gmo3p4qLML4csV0loGFy8cP2vpMSwV4F65BTq6LUZyq5zlV5s/LB0KkdGhd/tnMCmjWardA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<!-- HTML → Markdown -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/turndown/7.0.0/turndown.min.js" integrity="sha512-v9hVAwlYm3ca133Q8GsdUJ6G9vcOgcgBXsIl/sAUqcvAjlTYzMATYkCHsG70fmFIUoFaH7udfdO2gcwrqkRfAw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    padding: 8px;
+    background: #f4f4f4;
+    display: flex;
+    gap: 6px;
+}
+
+.container {
+    flex: 1;
+    display: flex;
+    height: 100%;
+}
+
+.pane {
+    flex: 0 0 50%;
+    width: 50%;
+    display: flex;
+    box-sizing: border-box;
+}
+
+textarea,
+.html-editor {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    overflow: auto;
+}
+textarea
+{
+    font-family: monospace;
+}
+.html-editor
+{
+    font-family: Arial, sans-serif;
+}
+
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .pane {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+}
+</style>
+</head>
+<body>
+
+<header>
+    <button onclick="downloadFile('markdown')">Download Markdown</button>
+    <button onclick="downloadFile('html')">Download HTML</button>
+</header>
+
+<div class="container">
+    <div class="pane">
+        <textarea id="markdownEditor" placeholder="Type Markdown here..."></textarea>
+    </div>
+    <div class="pane">
+        <div id="htmlEditor" class="html-editor" contenteditable="true"></div>
+    </div>
+</div>
+
+<script>
+const markdownEditor = document.getElementById("markdownEditor");
+const htmlEditor = document.getElementById("htmlEditor");
+
+const turndownService = new TurndownService({
+    headingStyle: "setext",
+    codeBlockStyle: "fenced"
+});
+
+marked.setOptions({
+    gfm: true,
+    breaks: true
+});
+
+let isUpdating = false;
+
+//Markdown to HTML
+markdownEditor.addEventListener("input", () => {
+    if (isUpdating) return;
+    isUpdating = true;
+
+    const html = marked.parse(markdownEditor.value);
+    htmlEditor.innerHTML = sanitizeHTML(html);
+
+    isUpdating = false;
+});
+
+//HTML to Markdown
+htmlEditor.addEventListener("input", () => {
+    if (isUpdating) return;
+    isUpdating = true;
+
+    const cleanHTML = sanitizeHTML(htmlEditor.innerHTML);
+    markdownEditor.value = turndownService.turndown(cleanHTML);
+
+    isUpdating = false;
+});
+
+function sanitizeHTML(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+
+    const allowedTags = new Set([
+        "H1","H2","H3","H4","H5","H6",
+        "P","BR","STRONG","B","EM","I",
+        "BLOCKQUOTE","CODE","PRE",
+        "UL","OL","LI"
+    ]);
+
+    function cleanNode(node) {
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            return document.createTextNode(node.textContent);
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return document.createDocumentFragment();
+        }
+
+        // Convert DIV to P
+        if (node.tagName === "DIV") {
+            const p = document.createElement("p");
+            node.childNodes.forEach(child => {
+                p.appendChild(cleanNode(child));
+            });
+            return p;
+        }
+
+        // Remove images entirely
+        if (node.tagName === "IMG") {
+            return document.createDocumentFragment();
+        }
+
+        // Remove hyperlinks but keep text
+        if (node.tagName === "A") {
+            const fragment = document.createDocumentFragment();
+            node.childNodes.forEach(child => {
+                fragment.appendChild(cleanNode(child));
+            });
+            return fragment;
+        }
+
+        if (!allowedTags.has(node.tagName)) {
+            const fragment = document.createDocumentFragment();
+            node.childNodes.forEach(child => {
+                fragment.appendChild(cleanNode(child));
+            });
+            return fragment;
+        }
+
+        const el = document.createElement(node.tagName);
+
+        node.childNodes.forEach(child => {
+            el.appendChild(cleanNode(child));
+        });
+
+        return el;
+    }
+
+    const fragment = document.createDocumentFragment();
+    doc.body.childNodes.forEach(node => {
+        fragment.appendChild(cleanNode(node));
+    });
+
+    const container = document.createElement("div");
+    container.appendChild(fragment);
+
+    return normalizeParagraphs(container.innerHTML);
+}
+
+// Preserve paragraph breaks
+function normalizeParagraphs(html) {
+    return html
+        .replace(/(<br\s*\/?>\s*){2,}/gi, "</p><p>")
+        .replace(/^\s*<\/p>/, "")
+        .replace(/<p>\s*<\/p>/g, "");
+}
+
+//Paste Handling (Images & Links Blocked)
+htmlEditor.addEventListener("paste", (e) => {
+    e.preventDefault();
+
+    const htmlData = e.clipboardData.getData("text/html");
+    const textData = e.clipboardData.getData("text/plain");
+
+    if (htmlData) {
+        htmlEditor.innerHTML += sanitizeHTML(htmlData);
+    } else {
+        htmlEditor.innerHTML += marked.parse(textData);
+    }
+
+    markdownEditor.value = turndownService.turndown(
+        sanitizeHTML(htmlEditor.innerHTML)
+    );
+});
+
+function downloadFile(type) {
+
+    let filename = prompt(
+        type === "markdown"
+            ? "Enter filename (default extension .txt - change to .md if desired):"
+            : "Enter filename (default extension .html):",
+        "document"
+    );
+
+    if (!filename) return;
+
+    let content, mime;
+
+    if (type === "markdown") {
+
+        if (!filename.includes(".")) {
+            filename += ".txt";
+        }
+
+        content = markdownEditor.value;
+        mime = "text/plain";
+
+    } else {
+
+        if (!filename.includes(".")) {
+            filename += ".html";
+        }
+
+        content =
+`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${filename.replace(/\.[^/.]+$/, "")}</title>
+<style>
+body {
+  max-width: 750px;
+  margin: 0 auto 0 auto;
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+  line-height: 28px;
+}
+h1 {
+  font-size: 28px;
+}
+h2 {
+  font-size: 24px;
+}
+h3 {
+  font-size: 20px;
+}
+</style>
+</head>
+<body>
+${htmlEditor.innerHTML}
+</body>
+</html>`;
+
+        mime = "text/html";
+    }
+
+    const blob = new Blob([content], { type: mime });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+}
+</script>
+
+</body>
+</html>
