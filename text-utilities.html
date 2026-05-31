@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text Utilities</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 1rem;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 1400px;
+    margin-inline: auto;
+}
+
+h1 {
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+textarea {
+    width: 100%;
+    min-height: 50vh;
+    resize: vertical;
+    padding: 0.75rem;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 0.95rem;
+}
+
+.panel {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 0.75rem;
+    background: #f8f8f8;
+}
+
+.toolbar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.9rem;
+}
+
+input,
+select,
+button {
+    padding: 0.5rem;
+    font-size: 1rem;
+}
+
+button {
+    cursor: pointer;
+}
+
+details {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 0.5rem;
+}
+
+details summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.status {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+@media (max-width: 600px) {
+    textarea {
+        min-height: 45vh;
+    }
+}
+</style>
+</head>
+<body>
+
+<h1>Text Utilities</h1>
+
+<div class="panel toolbar">
+
+    <label>
+        Word Wrap
+        <select id="wordWrap">
+            <option value="soft" selected>On</option>
+            <option value="off">Off</option>
+        </select>
+    </label>
+
+    <label>
+        Encoding
+        <select id="encoding">
+            <option value="utf8" selected>UTF-8</option>
+            <option value="ascii">ASCII</option>
+        </select>
+    </label>
+
+    <label>
+        Line Endings
+        <select id="lineEnding">
+            <option value="crlf" selected>Windows (CRLF)</option>
+            <option value="lf">Linux (LF)</option>
+        </select>
+    </label>
+
+    <label>
+        Transform
+        <select id="transform">
+            <option value="">Select...</option>
+            <option value="upper">Uppercase</option>
+            <option value="lower">Lowercase</option>
+            <option value="url">URL Encode</option>
+            <option value="html">HTML Encode</option>
+            <option value="singleToDouble">Single → Double Line Breaks</option>
+            <option value="multipleToSingle">Multiple → Single Line Breaks</option>
+        </select>
+    </label>
+
+</div>
+
+<textarea id="text" wrap="soft"></textarea>
+
+<div class="status" id="status"></div>
+
+<details>
+    <summary>Find and Replace</summary>
+
+    <div class="grid">
+        <label>
+            Find
+            <input id="findText" type="text">
+        </label>
+
+        <label>
+            Replace With
+            <input id="replaceText" type="text">
+        </label>
+
+        <label>
+            Matching Mode
+            <select id="matchMode">
+                <option value="text">Simple Text</option>
+                <option value="regex">Regular Expression</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="actions">
+        <button id="replaceButton">Replace All</button>
+    </div>
+</details>
+
+<details>
+    <summary>Insert Text</summary>
+
+    <div class="grid">
+        <label>
+            Prefix
+            <input id="prefixText" type="text">
+        </label>
+
+        <label>
+            Suffix
+            <input id="suffixText" type="text">
+        </label>
+    </div>
+
+    <div class="actions">
+        <button id="addPrefix">Apply Prefix</button>
+        <button id="addSuffix">Apply Suffix</button>
+        <button id="addBoth">Apply Both</button>
+    </div>
+</details>
+
+<script>
+const textArea = document.getElementById("text");
+const wordWrap = document.getElementById("wordWrap");
+const lineEnding = document.getElementById("lineEnding");
+const transform = document.getElementById("transform");
+const encoding = document.getElementById("encoding");
+const status = document.getElementById("status");
+
+function getLineEnding() {
+    return lineEnding.value === "crlf" ? "\r\n" : "\n";
+}
+
+function splitLines(text) {
+    return text.split(/\r\n|\r|\n/);
+}
+
+function normalizeLineEndings(text) {
+    return text.replace(/\r\n|\r|\n/g, getLineEnding());
+}
+
+function updateStatus() {
+    const chars = textArea.value.length;
+    const lines = splitLines(textArea.value).length;
+    status.textContent = `${chars.toLocaleString()} characters • ${lines.toLocaleString()} lines`;
+}
+
+wordWrap.addEventListener("change", () => {
+    textArea.wrap = wordWrap.value;
+});
+
+lineEnding.addEventListener("change", () => {
+    textArea.value = normalizeLineEndings(textArea.value);
+    updateStatus();
+});
+
+encoding.addEventListener("change", () => {
+    if (encoding.value !== "ascii") {
+        return;
+    }
+
+    const nonAscii = /[^\x00-\x7F]/.test(textArea.value);
+
+    if (nonAscii) {
+        alert(
+            "The current text contains characters outside the ASCII character set."
+        );
+    }
+});
+
+transform.addEventListener("change", () => {
+    const value = transform.value;
+
+    if (!value) {
+        return;
+    }
+
+    switch (value) {
+        case "upper":
+            textArea.value = textArea.value.toUpperCase();
+            break;
+
+        case "lower":
+            textArea.value = textArea.value.toLowerCase();
+            break;
+
+        case "url":
+            textArea.value = encodeURIComponent(textArea.value);
+            break;
+
+        case "html":
+            textArea.value = textArea.value
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+            break;
+
+        case "singleToDouble":
+            textArea.value = textArea.value.replace(
+                /(\r\n|\r|\n)/g,
+                getLineEnding() + getLineEnding()
+            );
+            break;
+
+        case "multipleToSingle":
+            textArea.value = textArea.value.replace(
+                /(\r\n|\r|\n){2,}/g,
+                getLineEnding()
+            );
+            break;
+    }
+
+    transform.value = "";
+    updateStatus();
+});
+
+document.getElementById("replaceButton").addEventListener("click", () => {
+    const find = document.getElementById("findText").value;
+    const replace = document.getElementById("replaceText").value;
+    const mode = document.getElementById("matchMode").value;
+
+    if (!find) {
+        return;
+    }
+
+    try {
+        if (mode === "regex") {
+            textArea.value = textArea.value.replace(
+                new RegExp(find, "g"),
+                replace
+            );
+        } else {
+            textArea.value = textArea.value.split(find).join(replace);
+        }
+
+        updateStatus();
+    } catch {
+        alert("Invalid regular expression.");
+    }
+});
+
+document.getElementById("addPrefix").addEventListener("click", () => {
+    const prefix = document.getElementById("prefixText").value;
+    const le = getLineEnding();
+
+    textArea.value = splitLines(textArea.value)
+        .map(line => prefix + line)
+        .join(le);
+
+    updateStatus();
+});
+
+document.getElementById("addSuffix").addEventListener("click", () => {
+    const suffix = document.getElementById("suffixText").value;
+    const le = getLineEnding();
+
+    textArea.value = splitLines(textArea.value)
+        .map(line => line + suffix)
+        .join(le);
+
+    updateStatus();
+});
+
+document.getElementById("addBoth").addEventListener("click", () => {
+    const prefix = document.getElementById("prefixText").value;
+    const suffix = document.getElementById("suffixText").value;
+    const le = getLineEnding();
+
+    textArea.value = splitLines(textArea.value)
+        .map(line => prefix + line + suffix)
+        .join(le);
+
+    updateStatus();
+});
+
+function escapeRegex(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+textArea.addEventListener("input", updateStatus);
+
+updateStatus();
+</script>
+
+</body>
+</html>
