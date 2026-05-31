@@ -1,11 +1,17 @@
 Assorted single-file JavaScript tools
 =====================================
 
-[Convert HTML to MD to clean HTML with CSS](html-md-css.html)
+[Markdown viewer](markdown-viewer.html)
 
-[Basic bidirectional HTML editor](Bidirectional-HTML-editor.html)
+[Basic Markdown editor - no links](basic-markdown-editor-no-links.html)
+
+[Basic Markdown editor with Base64 image support](basic-markdown-editor-with-images.html)
 
 [Simple text file editor](simple-text-editor.html)
+
+[Text utilities](text-utilities.html)
+
+[Basic bidirectional HTML editor](Bidirectional-HTML-editor.html)
 
 [Simple div with contenteditable=true for quick printing](contenteditable-div.html)
 
@@ -14,3 +20,7 @@ Assorted single-file JavaScript tools
 [Word counter](wordcount.html)
 
 [Convert image from URL to Base64](img-url-to-base64.html)
+
+[Basic WEBP image converter](basic-webp-converter.html)
+
+[Convert HTML to MD to clean HTML with CSS](html-md-css.html)
