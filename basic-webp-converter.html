@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WEBP to JPG/PNG Converter</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 1rem;
+    background: #f5f5f5;
+    display: flex;
+    justify-content: center;
+  }
+
+  .container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    max-width: 500px;
+    width: 100%;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  label {
+    display: block;
+    margin-top: 1rem;
+    font-weight: bold;
+  }
+
+  input, select, button {
+    width: 100%;
+    padding: 0.5rem;
+    margin-top: 0.4rem;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+
+  button {
+    margin-top: 1.2rem;
+    cursor: pointer;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+  }
+
+  button:disabled {
+    background: #999;
+    cursor: not-allowed;
+  }
+
+  .preview {
+    margin-top: 1rem;
+    text-align: center;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    margin-top: 0.5rem;
+    border-radius: 4px;
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 1rem;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>WEBP to JPG / PNG Converter</h1>
+
+  <label for="fileInput">Upload WEBP file</label>
+  <input type="file" id="fileInput" accept="image/webp" />
+
+  <label for="formatSelect">Convert to</label>
+  <select id="formatSelect">
+    <option value="image/jpeg">JPEG</option>
+    <option value="image/png">PNG</option>
+  </select>
+
+  <label for="filenameInput">Output filename (without extension)</label>
+  <input type="text" id="filenameInput" placeholder="converted-image" />
+
+  <button id="convertButton" disabled>Convert & Download</button>
+
+  <div class="preview">
+    <strong>Preview:</strong>
+    <img id="previewImage" alt="Preview will appear here" />
+  </div>
+</div>
+
+<script>
+  const fileInput = document.getElementById('fileInput');
+  const formatSelect = document.getElementById('formatSelect');
+  const filenameInput = document.getElementById('filenameInput');
+  const convertButton = document.getElementById('convertButton');
+  const previewImage = document.getElementById('previewImage');
+
+  let uploadedImage = null;
+
+  fileInput.addEventListener('change', function () {
+    const file = this.files[0];
+
+    if (!file || file.type !== 'image/webp') {
+      alert('Please upload a valid WEBP image.');
+      convertButton.disabled = true;
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      uploadedImage = new Image();
+      uploadedImage.onload = function () {
+        previewImage.src = event.target.result;
+        convertButton.disabled = false;
+      };
+      uploadedImage.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  convertButton.addEventListener('click', function () {
+    if (!uploadedImage) return;
+
+    const format = formatSelect.value;
+    const extension = format === 'image/jpeg' ? 'jpg' : 'png';
+    const filename = filenameInput.value.trim() || 'converted-image';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = uploadedImage.width;
+    canvas.height = uploadedImage.height;
+
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(uploadedImage, 0, 0);
+
+    canvas.toBlob(function (blob) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename + '.' + extension;
+      document.body.appendChild(link);
+      link.click();
+
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }, format, 0.95); // 0.95 quality for JPEG
+  });
+</script>
+
+</body>
+</html>
