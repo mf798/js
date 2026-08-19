@@ -13,6 +13,8 @@ Assorted single-file JavaScript tools
 
 [Basic bidirectional HTML editor](Bidirectional-HTML-editor.html)
 
+[Basic bidirectional HTML editor with images](Bidirectional-HTML-editor-2.html)
+
 [Simple div with contenteditable=true for quick printing](contenteditable-div.html)
 
 [Roll d6 dice](d6.html)
