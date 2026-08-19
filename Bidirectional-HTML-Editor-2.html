@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+
+<style>
+body {
+  margin: 0;
+  font-family: arial, sans-serif;
+  font-size: 18px;
+  line-height: 28px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+h1 {font-size: 28px;}
+h2 {font-size: 22px;}
+h3 {font-size: 20px;}
+h4 {font-size: 18px;}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #f2f2f2;
+  border-bottom: 1px solid #ccc;
+}
+
+.toolbar button,
+.toolbar input {
+  font-size: 1rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.container {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editor,
+.source {
+  flex: 1;
+  padding: 1rem;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.editor {
+  border: 1px solid #ccc;
+}
+
+#content {
+  min-height: 100%;
+  outline: none;
+}
+
+textarea {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  font-family: monospace;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <button id="renderSource">Render source code to DIV</button>
+  <button id="updateSource">Update source code from DIV</button>
+  <input type="text" id="filename" placeholder="document.html">
+  <button id="downloadHtml">Download HTML</button>
+</div>
+
+<div class="container">
+  <div class="source">
+    <textarea id="htmlSource" spellcheck="false"></textarea>
+  </div>
+  <div class="editor">
+    <div id="content" contenteditable="true"></div>
+  </div>
+</div>
+
+<script>
+const contentDiv = document.getElementById("content");
+const htmlSource = document.getElementById("htmlSource");
+const updateButton = document.getElementById("updateSource");
+const renderButton = document.getElementById("renderSource");
+const downloadButton = document.getElementById("downloadHtml");
+const filenameInput = document.getElementById("filename");
+
+const ALLOWED_TAGS = [
+  "P","H1","H2","H3","H4","H5","H6",
+  "B","STRONG","I","EM","SUB","SUP",
+  "S","STRIKE","CODE","PRE","BLOCKQUOTE",
+  "UL","OL","LI","BR","IMG","A"
+];
+
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+
+    reader.readAsDataURL(file);
+  });
+}
+
+async function imageUrlToDataURL(src) {
+  if (!src) {
+    return src;
+  }
+
+  // Already Base64.
+  if (src.startsWith("data:image/")) {
+    return src;
+  }
+
+  try {
+    const response = await fetch(src, {
+      mode: "cors"
+    });
+
+    if (!response.ok) {
+      return src;
+    }
+
+    const blob = await response.blob();
+
+    if (!blob.type.startsWith("image/")) {
+      return src;
+    }
+
+    return await fileToDataURL(blob);
+  } catch (error) {
+    console.warn("Could not convert image to Base64:", src, error);
+    return src;
+  }
+}
+
+async function convertImagesToBase64(root) {
+  const images = Array.from(root.querySelectorAll("img"));
+
+  await Promise.all(
+    images.map(async img => {
+      const src = img.getAttribute("src");
+
+      if (!src) {
+        return;
+      }
+
+      const base64 = await imageUrlToDataURL(src);
+
+      if (base64) {
+        img.setAttribute("src", base64);
+      }
+    })
+  );
+}
+
+contentDiv.addEventListener("paste", async function(e) {
+  e.preventDefault();
+
+  const clipboardData = e.clipboardData;
+
+  if (!clipboardData) {
+    return;
+  }
+
+  const html = clipboardData.getData("text/html");
+  const text = clipboardData.getData("text/plain");
+
+  const imageFiles = Array.from(clipboardData.files || [])
+    .filter(file => file.type.startsWith("image/"));
+
+  let sanitized;
+
+  if (html) {
+    sanitized = sanitizeHTML(html);
+
+    if (imageFiles.length > 0) {
+      const imageDataUrls = await Promise.all(
+        imageFiles.map(file => fileToDataURL(file))
+      );
+
+      const images = Array.from(sanitized.querySelectorAll("img"));
+
+      images.forEach((img, index) => {
+        if (imageDataUrls[index]) {
+          img.setAttribute("src", imageDataUrls[index]);
+        }
+      });
+    }
+
+    await convertImagesToBase64(sanitized);
+
+  } else if (imageFiles.length > 0) {
+
+    const fragment = document.createDocumentFragment();
+
+    for (const file of imageFiles) {
+      const dataUrl = await fileToDataURL(file);
+
+      const img = document.createElement("img");
+      img.src = dataUrl;
+      img.alt = "";
+
+      fragment.appendChild(img);
+    }
+
+    sanitized = fragment;
+
+  } else {
+    sanitized = document.createElement("p");
+    sanitized.textContent = text;
+  }
+
+  insertNodeAtCursor(sanitized);
+});
+
+
+function sanitizeHTML(inputHtml) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(inputHtml, "text/html");
+  const fragment = document.createDocumentFragment();
+
+  function processNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return document.createTextNode(node.textContent);
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
+    }
+
+    const tagName = node.tagName.toUpperCase();
+
+    if (tagName === "A") {
+      const a = document.createElement("a");
+
+      const href = node.getAttribute("href");
+
+      if (href) {
+        a.setAttribute("href", href);
+      }
+
+      Array.from(node.childNodes).forEach(child => {
+        const processed = processNode(child);
+
+        if (processed) {
+          a.appendChild(processed);
+        }
+      });
+
+      return a;
+    }
+
+    if (tagName === "IMG") {
+      const img = document.createElement("img");
+
+      const src = node.getAttribute("src");
+
+      if (src) {
+        img.setAttribute("src", src);
+      }
+
+      const alt = node.getAttribute("alt");
+
+      if (alt) {
+        img.setAttribute("alt", alt);
+      }
+
+      const width = node.getAttribute("width");
+      const height = node.getAttribute("height");
+
+      if (width && /^\d+$/.test(width)) {
+        img.setAttribute("width", width);
+      }
+
+      if (height && /^\d+$/.test(height)) {
+        img.setAttribute("height", height);
+      }
+
+      return img;
+    }
+
+    if (tagName === "DIV") {
+      const hasText =
+        node.textContent.trim().length > 0 ||
+        node.querySelector("img");
+
+      if (!hasText) {
+        return null;
+      }
+
+      const p = document.createElement("p");
+
+      Array.from(node.childNodes).forEach(child => {
+        const processed = processNode(child);
+
+        if (processed) {
+          p.appendChild(processed);
+        }
+      });
+
+      return p;
+    }
+
+    if (!ALLOWED_TAGS.includes(tagName)) {
+      const fragment = document.createDocumentFragment();
+
+      Array.from(node.childNodes).forEach(child => {
+        const processed = processNode(child);
+
+        if (processed) {
+          fragment.appendChild(processed);
+        }
+      });
+
+      return fragment;
+    }
+
+    const el = document.createElement(tagName.toLowerCase());
+
+    Array.from(node.childNodes).forEach(child => {
+      const processed = processNode(child);
+
+      if (processed) {
+        el.appendChild(processed);
+      }
+    });
+
+    return el;
+  }
+
+  Array.from(doc.body.childNodes).forEach(child => {
+    const processed = processNode(child);
+
+    if (processed) {
+      fragment.appendChild(processed);
+    }
+  });
+
+  removeEmptyParagraphs(fragment);
+
+  return fragment;
+}
+
+
+function removeEmptyParagraphs(root) {
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_ELEMENT
+  );
+
+  const toRemove = [];
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+
+    if (
+      node.tagName === "P" &&
+      node.textContent.trim() === "" &&
+      !node.querySelector("img")
+    ) {
+      toRemove.push(node);
+    }
+  }
+
+  toRemove.forEach(n => n.remove());
+}
+
+
+function insertNodeAtCursor(node) {
+  const sel = window.getSelection();
+
+  if (!sel.rangeCount) {
+    contentDiv.appendChild(node);
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+
+  if (!contentDiv.contains(range.commonAncestorContainer)) {
+    contentDiv.appendChild(node);
+    return;
+  }
+
+  range.deleteContents();
+  range.insertNode(node);
+
+  range.collapse(false);
+
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+updateButton.addEventListener("click", async function() {
+  updateButton.disabled = true;
+  updateButton.textContent = "Converting images...";
+
+  try {
+    const cleaned = sanitizeHTML(contentDiv.innerHTML);
+
+    await convertImagesToBase64(cleaned);
+
+    const tempDiv = document.createElement("div");
+
+    tempDiv.appendChild(cleaned);
+
+    htmlSource.value = prettyPrint(tempDiv.innerHTML);
+
+  } finally {
+    updateButton.disabled = false;
+    updateButton.textContent = "Update source code from DIV";
+  }
+});
+
+renderButton.addEventListener("click", function() {
+  contentDiv.innerHTML = htmlSource.value;
+});
+
+function prettyPrint(html) {
+  const blockTags =
+    /<\/?(p|h1|h2|h3|h4|h5|h6|blockquote)[^>]*>/gi;
+
+  html = html.replace(blockTags, "\n$&\n");
+  html = html.replace(/\n{2,}/g, "\n");
+
+  return html.trim();
+}
+
+downloadButton.addEventListener("click", function() {
+  let name = filenameInput.value.trim() || "document.html";
+
+  if (!/\.html$/i.test(name)) {
+    name += ".html";
+  }
+
+  const content = htmlSource.value.trim();
+
+  const fullDocument =
+`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+<style>
+body {
+    max-width: 800px;
+    margin: 0 auto 0 auto;
+    font-family: arial, sans-serif;
+    font-size: 18px;
+    line-height: 28px;
+}
+h1 {font-size: 28px;}
+h2 {font-size: 22px;}
+h3 {font-size: 20px;}
+h4 {font-size: 18px;}
+</style>
+</head>
+<body>
+${content}
+</body>
+</html>`;
+
+  const blob = new Blob(
+    [fullDocument],
+    { type: "text/html" }
+  );
+
+  const a = document.createElement("a");
+
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+
+  document.body.appendChild(a);
+  a.click();
+
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(a.href);
+});
+</script>
+
+</body>
+</html>
