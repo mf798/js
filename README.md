@@ -13,7 +13,7 @@ Assorted single-file JavaScript tools
 
 [Basic bidirectional HTML editor](Bidirectional-HTML-editor.html)
 
-[Basic bidirectional HTML editor with images](Bidirectional-HTML-editor-2.html)
+[Basic bidirectional HTML editor with images](Bidirectional-HTML-Editor-2.html)
 
 [Simple div with contenteditable=true for quick printing](contenteditable-div.html)
 
@@ -24,5 +24,7 @@ Assorted single-file JavaScript tools
 [Convert image from URL to Base64](img-url-to-base64.html)
 
 [Basic WebP image converter](basic-webp-converter.html)
+
+[Convert EPUB to HTML page](EPUB-to-HTML.html)
 
 [Convert HTML to MD to clean HTML with CSS](html-md-css.html)
